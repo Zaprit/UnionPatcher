@@ -1,50 +1,67 @@
 ﻿using System.Diagnostics;
 using LBPUnion.UnionPatcher;
 
-namespace UnionPatcher.Cli; 
+namespace UnionPatcher.Cli;
 
-public static class Program {
-    
+public static class Program
+{
+
     private static string? fileName;
-    public static string FileName {
-        get {
-            if(fileName != null) return fileName;
+    public static string FileName
+    {
+        get
+        {
+            if (fileName != null) return fileName;
 
             return fileName = (Path.GetFileName(Process.GetCurrentProcess().MainModule?.FileName) ?? "");
         }
     }
 
-    public static void Main(string[] args) {
-        if(args.Length < 3) {
+    public static void Main(string[] args)
+    {
+        if (args.Length < 3)
+        {
             PrintHelp();
             return;
         }
 
         ElfFile eboot = new(new FileInfo(args[0]));
 
-        if(!eboot.IsValid) {
+        if (!eboot.IsValid)
+        {
             Console.WriteLine($"{eboot.Name} is not a valid ELF file (magic number mismatch)");
             Console.WriteLine("The EBOOT must be decrypted before using this tool");
             return;
         }
 
-        if(eboot.Is64Bit == null) {
+        if (eboot.Is64Bit == null)
+        {
             Console.WriteLine($"{eboot.Name} does not target a valid system");
             return;
         }
 
-        if(string.IsNullOrWhiteSpace(eboot.Architecture)) {
+        if (string.IsNullOrWhiteSpace(eboot.Architecture))
+        {
             Console.WriteLine($"{eboot.Name} does not target a valid architecture (PowerPC or ARM)");
             return;
         }
 
         Console.WriteLine($"{eboot.Name} targets {eboot.Architecture}");
 
+        string currentURL = Patcher.GetCurrentURLFromFile(args[0]);
+
+        Console.WriteLine($"EBOOT.ELF is currently using URL {currentURL}");
+
+        string isOfficialURL = Patcher.IsOfficialURL(currentURL) ? "YES" : "NO";
+
+        Console.WriteLine($"Is using official servers: {isOfficialURL}");
+
         Patcher.PatchFile(args[0], args[1], args[2]);
         Console.WriteLine($"Successfully patched Server URL to {args[1]}.");
     }
 
-    public static void PrintHelp() {
+    public static void PrintHelp()
+    {
         Console.WriteLine("UnionPatcher");
         Console.WriteLine($"    Usage: {FileName} <Input EBOOT.elf> <Server URL> <Output filename>");
     }

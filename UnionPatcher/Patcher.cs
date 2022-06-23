@@ -2,9 +2,10 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace LBPUnion.UnionPatcher; 
+namespace LBPUnion.UnionPatcher;
 
-public static class Patcher {
+public static class Patcher
+{
     private static readonly string[] toBePatched = {
         // Normal LittleBigPlanet gameserver URLs
         "https://littlebigplanetps3.online.scee.com:10061/LITTLEBIGPLANETPS3_XML",
@@ -33,34 +34,41 @@ public static class Patcher {
         #endregion
     };
 
-    public static void PatchFile(string fileName, Uri serverUrl, string outputFileName) {
+    public static void PatchFile(string fileName, Uri serverUrl, string outputFileName)
+    {
         PatchFile(fileName, serverUrl.ToString(), outputFileName);
     }
 
-    public static void PatchFile(string fileName, string serverUrl, string outputFileName) {
+    public static void PatchFile(string fileName, string serverUrl, string outputFileName)
+    {
         File.WriteAllBytes(outputFileName, PatchData(File.ReadAllBytes(fileName), serverUrl));
     }
 
-    public static byte[] PatchData(byte[] data, Uri serverUrl) {
+    public static byte[] PatchData(byte[] data, Uri serverUrl)
+    {
         return PatchData(data, serverUrl.ToString());
     }
-        
-    public static byte[] PatchData(byte[] data, string serverUrl) {
+
+    public static byte[] PatchData(byte[] data, string serverUrl)
+    {
         #region Validation
-        if(serverUrl.EndsWith('/')) {
+        if (serverUrl.EndsWith('/'))
+        {
             throw new ArgumentException("URL must not contain a trailing slash!");
         }
 
         // Attempt to create URI to see if it's valid
-        if(!Uri.TryCreate(serverUrl, UriKind.RelativeOrAbsolute, out _)) {
+        if (!Uri.TryCreate(serverUrl, UriKind.RelativeOrAbsolute, out _))
+        {
             throw new Exception("URL must be valid.");
         }
 
-        if(serverUrl.Length > data.Length) {
+        if (serverUrl.Length > data.Length)
+        {
             throw new ArgumentException("URL cannot be bigger than the file to patch.");
         }
         #endregion
-            
+
         string dataAsString = Encoding.ASCII.GetString(data);
 
         using MemoryStream ms = new(data);
@@ -72,16 +80,19 @@ public static class Patcher {
         byte[] serverUrlAsBytes = Encoding.ASCII.GetBytes(serverUrl);
 
         bool wroteUrl = false;
-        foreach(string url in toBePatched) {
-            if(serverUrl.Length > url.Length) {
+        foreach (string url in toBePatched)
+        {
+            if (serverUrl.Length > url.Length)
+            {
                 throw new ArgumentOutOfRangeException(nameof(serverUrl), $"Server URL ({serverUrl.Length} characters long) is above maximum length {url.Length}");
             }
-                
+
             int offset = dataAsString.IndexOf(url, StringComparison.Ordinal);
-            if(offset < 1) continue;
+            if (offset < 1) continue;
 
             writer.BaseStream.Position = offset;
-            for(int i = 0; i < url.Length; i++) {
+            for (int i = 0; i < url.Length; i++)
+            {
                 writer.Write((byte)0x00); // Zero out data
             }
 
@@ -91,7 +102,8 @@ public static class Patcher {
             wroteUrl = true;
         }
 
-        if(!wroteUrl) {
+        if (!wroteUrl)
+        {
             throw new Exception("No patchable URLs were detected in the " +
                                 "provided file. Please make sure you are patching " +
                                 "the correct file.");
@@ -102,4 +114,44 @@ public static class Patcher {
 
         return data;
     }
+
+    public static string GetCurrentURLFromFile(string fileName)
+    {
+        return GetCurrentURL(File.ReadAllBytes(fileName));
+    }
+
+    public static string GetCurrentURL(byte[] data)
+    {
+        string dataAsString = Encoding.ASCII.GetString(data);
+
+        int index = dataAsString.IndexOf("LITTLEBIGPLANETPS3_XML") + 22;
+
+        int urlindex = dataAsString.IndexOf("http", index - 79); // TODO: this is a janky hardcoded magic number, not good
+
+        string longString = dataAsString.Remove(index);
+
+        string urlString = longString.Substring(urlindex);
+
+        if (urlString.EndsWith("/"))
+        {
+            urlString = urlString.Remove(urlString.LastIndexOf("/"));
+        }
+
+        urlString = urlString.Trim();
+
+        return urlString;
+    }
+
+    public static bool IsOfficialURL(string serverURL)
+    {
+        foreach (string s in toBePatched)
+        {
+            if (s == serverURL)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }
